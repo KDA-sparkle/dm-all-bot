@@ -1,0 +1,5 @@
+{
+  "token": "YOUR_BOT_TOKEN_HERE",
+  "excludedRoles": ["ROLE_ID_1", "ROLE_ID_2"],
+  "excludedMembers": ["MEMBER_ID_1", "MEMBER_ID_2"]
+}
