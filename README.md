@@ -1,7 +1,3 @@
-Certainly! Here is a detailed README file for the "DM All" bot, incorporating your name and the necessary instructions.
-
----
-
 # DM All Bot by Sparkle / KDA_Delta (Discord)
 
 This Discord bot, created by Sparkle / KDA_Delta, allows you to send direct messages to all members in your servers, manage exclusions, and provide server information. This project is intended for educational purposes only. Use it responsibly.
