@@ -143,37 +143,27 @@ client.on("messageCreate", async (message) => {
       message.channel.send({ embeds: [embed] });
     }
   } else if (message.content === "!servers") {
-    const embed = new EmbedBuilder().setTitle("Servers").setColor("#FF69B4"); // Couleur rose
+    const guilds = client.guilds.cache;
+    const embeds = [];
+    let embed = new EmbedBuilder().setTitle("Servers").setColor("#FF69B4"); // Couleur rose
+    let count = 0;
 
-    for (const guild of client.guilds.cache.values()) {
-      try {
-        const systemChannel = guild.systemChannel;
-        const me = guild.members.me;
-        if (
-          systemChannel &&
-          me &&
-          systemChannel.permissionsFor(me).has("CREATE_INSTANT_INVITE")
-        ) {
-          const invite = await systemChannel.createInvite({
-            maxAge: 0,
-            maxUses: 1,
-          });
-          embed.addFields({
-            name: guild.name,
-            value: `[Join ${guild.name}](${invite.url})`,
-          });
-        } else {
-          embed.addFields({
-            name: guild.name,
-            value: `No invite link available`,
-          });
-        }
-      } catch (error) {
-        console.error(error);
+    guilds.forEach((guild) => {
+      if (count === 25) {  // Maximum de 25 champs par embed
+        embeds.push(embed);
+        embed = new EmbedBuilder().setTitle("Servers (cont.)").setColor("#FF69B4"); // Nouvelle embed si besoin
+        count = 0;
       }
-    }
 
-    message.channel.send({ embeds: [embed] });
+      embed.addFields({ name: guild.name, value: `ID: ${guild.id}`, inline: true });
+      count++;
+    });
+
+    embeds.push(embed); // Pousser le dernier embed dans la liste
+
+    for (const emb of embeds) {
+      await message.channel.send({ embeds: [emb] });
+    }
   } else if (message.content === "!help") {
     const embed = new EmbedBuilder()
       .setTitle("Help")
