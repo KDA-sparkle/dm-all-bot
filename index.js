@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
@@ -18,74 +18,74 @@ let excludedRoles = config.excludedRoles;
 let excludedMembers = config.excludedMembers;
 
 client.once("ready", () => {
-  console.log(`Connecté en tant que ${client.user.tag}!`);
+  console.log(`Logged in as ${client.user.tag}!`);
 });
 
 client.on("messageCreate", async (message) => {
-  if (message.content.startsWith("!dm ")) {
+  if (message.content.startsWith("!dm ") || message.content.startsWith("!dmall ")) {
     const args = message.content.split(" ").slice(1);
-    if (args.length < 2) {
-      message.channel.send("Utilisation : `!dm <server_id> <message>`");
+    const isDmAll = message.content.startsWith("!dmall");
+
+    if ((isDmAll && args.length < 1) || (!isDmAll && args.length < 2)) {
+      message.channel.send(`Usage: \`${isDmAll ? '!dmall <message>' : '!dm <server_id> <message>'}\``);
       return;
     }
 
-    const guildId = args[0];
-    const msgToSend = args.slice(1).join(" ");
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) {
-      message.channel.send("Serveur non trouvé.");
-      return;
-    }
+    const msgToSend = isDmAll ? args.join(" ") : args.slice(1).join(" ");
+    const embed = new EmbedBuilder()
+      .setTitle("Send Confirmation")
+      .setDescription(`Are you sure you want to send the following message as a DM?\n\n**Message:**\n${msgToSend}\n\n*Note: The message will be sent without embed in the DMs.*`)
+      .setColor("#FF69B4"); // Pink color
 
-    try {
-      const members = await guild.members.fetch();
-      for (const member of members.values()) {
-        if (
-          !member.user.bot &&
-          !member.roles.cache.some((role) => excludedRoles.includes(role.id)) &&
-          !excludedMembers.includes(member.id)
-        ) {
-          await sendDM(member, msgToSend);
-        }
-      }
-      message.channel.send("Messages envoyés!");
-    } catch (error) {
-      console.error(error);
-      message.channel.send("Une erreur est survenue lors de la récupération des membres.");
-    }
-  } else if (message.content.startsWith("!dmall ")) {
-    const args = message.content.split(" ").slice(1);
-    if (args.length < 1) {
-      message.channel.send("Utilisation : `!dmall <message>`");
-      return;
-    }
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('confirm')
+          .setLabel('Accept')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('cancel')
+          .setLabel('Reject')
+          .setStyle(ButtonStyle.Danger)
+      );
 
-    const msgToSend = args.join(" ");
+    const confirmationMessage = await message.channel.send({ embeds: [embed], components: [row] });
 
-    try {
-      for (const guild of client.guilds.cache.values()) {
-        const members = await guild.members.fetch();
-        for (const member of members.values()) {
-          if (
-            !member.user.bot &&
-            !member.roles.cache.some((role) =>
-              excludedRoles.includes(role.id)
-            ) &&
-            !excludedMembers.includes(member.id)
-          ) {
-            await sendDM(member, msgToSend);
+    const filter = i => i.user.id === message.author.id;
+    const collector = confirmationMessage.createMessageComponentCollector({ filter, componentType: ComponentType.Button, time: 60000 });
+
+    collector.on('collect', async i => {
+      if (i.customId === 'confirm') {
+        await i.update({ content: 'Message confirmed. Sending...', components: [] });
+
+        if (isDmAll) {
+          await sendDMsToAllGuilds(message, msgToSend);
+        } else {
+          const guildId = args[0];
+          const guild = client.guilds.cache.get(guildId);
+          if (!guild) {
+            message.channel.send("Server not found.");
+            return;
           }
+          await sendDMsToGuild(message, guild, msgToSend);
         }
+
+        message.channel.send(`${message.author}, the messages have been successfully sent!`);
+      } else if (i.customId === 'cancel') {
+        await i.update({ content: 'Sending canceled. Please rewrite your message.', components: [] });
       }
-      message.channel.send("Messages envoyés à tous les membres dans tous les serveurs!");
-    } catch (error) {
-      console.error(error);
-      message.channel.send("Une erreur est survenue lors de la récupération des membres.");
-    }
+    });
+
+    collector.on('end', collected => {
+      if (!collected.size) {
+        confirmationMessage.edit({ content: "Time expired. Please try again.", components: [] });
+      }
+    });
+
   } else if (message.content.startsWith("!addrole ")) {
     const args = message.content.split(" ");
     if (args.length !== 2) {
-      message.channel.send("Utilisation : `!addrole <role_id>`");
+      message.channel.send("Usage: `!addrole <role_id>`");
       return;
     }
 
@@ -93,16 +93,16 @@ client.on("messageCreate", async (message) => {
     if (!excludedRoles.includes(roleId)) {
       excludedRoles.push(roleId);
       saveConfig();
-      message.channel.send(`Role ID ${roleId} ajouté à la liste d'exclusion.`);
+      message.channel.send(`Role ID ${roleId} added to the exclusion list.`);
     } else {
       message.channel.send(
-        `Role ID ${roleId} est déjà dans la liste d'exclusion.`
+        `Role ID ${roleId} is already in the exclusion list.`
       );
     }
   } else if (message.content.startsWith("!addmember ")) {
     const args = message.content.split(" ");
     if (args.length !== 2) {
-      message.channel.send("Utilisation : `!addmember <member_id>`");
+      message.channel.send("Usage: `!addmember <member_id>`");
       return;
     }
 
@@ -111,47 +111,47 @@ client.on("messageCreate", async (message) => {
       excludedMembers.push(memberId);
       saveConfig();
       message.channel.send(
-        `Membre ID ${memberId} ajouté à la liste d'exclusion.`
+        `Member ID ${memberId} added to the exclusion list.`
       );
     } else {
       message.channel.send(
-        `Membre ID ${memberId} est déjà dans la liste d'exclusion.`
+        `Member ID ${memberId} is already in the exclusion list.`
       );
     }
   } else if (message.content === "!roles") {
     if (excludedRoles.length === 0) {
-      message.channel.send("Aucun rôle dans la liste d'exclusion.");
+      message.channel.send("No roles in the exclusion list.");
     } else {
       const embed = new EmbedBuilder()
-        .setTitle("Rôles Exclus")
+        .setTitle("Excluded Roles")
         .setDescription(
           excludedRoles.map((roleId) => `<@&${roleId}>`).join("\n")
         )
-        .setColor("#FF69B4"); // Couleur rose
+        .setColor("#FF69B4"); // Pink color
       message.channel.send({ embeds: [embed] });
     }
   } else if (message.content === "!members") {
     if (excludedMembers.length === 0) {
-      message.channel.send("Aucun membre dans la liste d'exclusion.");
+      message.channel.send("No members in the exclusion list.");
     } else {
       const embed = new EmbedBuilder()
-        .setTitle("Membres Exclus")
+        .setTitle("Excluded Members")
         .setDescription(
           excludedMembers.map((memberId) => `<@${memberId}>`).join("\n")
         )
-        .setColor("#FF69B4"); // Couleur rose
+        .setColor("#FF69B4"); // Pink color
       message.channel.send({ embeds: [embed] });
     }
   } else if (message.content === "!servers") {
     const guilds = client.guilds.cache;
     const embeds = [];
-    let embed = new EmbedBuilder().setTitle("Serveurs").setColor("#FF69B4"); // Couleur rose
+    let embed = new EmbedBuilder().setTitle("Servers").setColor("#FF69B4"); // Pink color
     let count = 0;
 
     guilds.forEach((guild) => {
-      if (count === 25) {  // Maximum de 25 champs par embed
+      if (count === 25) {  // Maximum of 25 fields per embed
         embeds.push(embed);
-        embed = new EmbedBuilder().setTitle("Serveurs (suite)").setColor("#FF69B4"); // Nouvelle embed si besoin
+        embed = new EmbedBuilder().setTitle("Servers (cont.)").setColor("#FF69B4"); // New embed if needed
         count = 0;
       }
 
@@ -159,18 +159,18 @@ client.on("messageCreate", async (message) => {
       count++;
     });
 
-    embeds.push(embed); // Pousser le dernier embed dans la liste
+    embeds.push(embed); // Push the last embed in the list
 
     for (const emb of embeds) {
       await message.channel.send({ embeds: [emb] });
     }
   } else if (message.content === "!help") {
     const embed = new EmbedBuilder()
-      .setTitle("Aide")
+      .setTitle("Help")
       .setDescription(
-        "Commandes disponibles :\n\n`!dm <server_id> <message>` - Envoyer un message direct à tous les membres du serveur spécifié.\n`!dmall <message>` - Envoyer un message direct à tous les membres de tous les serveurs.\n`!addrole <role_id>` - Ajouter un rôle à la liste d'exclusion.\n`!addmember <member_id>` - Ajouter un membre à la liste d'exclusion.\n`!roles` - Lister tous les rôles dans la liste d'exclusion.\n`!members` - Lister tous les membres dans la liste d'exclusion.\n`!servers` - Lister tous les serveurs dans lesquels le bot est présent.\n`!help` - Afficher ce message d'aide."
+        "Available commands:\n\n`!dm <server_id> <message>` - Send a direct message to all members of the specified server.\n`!dmall <message>` - Send a direct message to all members of all servers.\n`!addrole <role_id>` - Add a role to the exclusion list.\n`!addmember <member_id>` - Add a member to the exclusion list.\n`!roles` - List all roles in the exclusion list.\n`!members` - List all members in the exclusion list.\n`!servers` - List all servers the bot is in.\n`!help` - Display this help message."
       )
-      .setColor("#FF69B4"); // Couleur rose
+      .setColor("#FF69B4"); // Pink color
     message.channel.send({ embeds: [embed] });
   }
 });
@@ -178,13 +178,48 @@ client.on("messageCreate", async (message) => {
 async function sendDM(member, msgToSend) {
   try {
     await member.send(msgToSend);
-    await new Promise((resolve) => setTimeout(resolve, 2000)); // Pause de 2 secondes entre chaque message
+    console.log(`Message sent to ${member.user.tag} (ID: ${member.user.id}): ${msgToSend}`);
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // Pause of 2 seconds between each message
   } catch (error) {
     if (error.code === 50007) {
-      console.error(`Impossible d'envoyer un message à ${member.user.tag} (l'utilisateur a désactivé les DMs ou a bloqué le bot).`);
+      console.error(`Cannot send message to ${member.user.tag} (DMs disabled or bot blocked).`);
     } else {
-      console.error(`Impossible d'envoyer un message à ${member.user.tag} :`, error);
+      console.error(`Could not send message to ${member.user.tag}:`, error);
     }
+    // Continue even if there's an error
+  }
+}
+
+async function sendDMsToGuild(message, guild, msgToSend) {
+  message.channel.send(`${message.author}, starting to send messages to members of the server ${guild.name}...`);
+  try {
+    const members = await guild.members.fetch();
+    for (const member of members.values()) {
+      if (
+        !member.user.bot &&
+        !member.roles.cache.some((role) => excludedRoles.includes(role.id)) &&
+        !excludedMembers.includes(member.id)
+      ) {
+        await sendDM(member, msgToSend);
+      }
+    }
+    message.channel.send(`${message.author}, the messages have been sent to the members of the server ${guild.name}.`);
+  } catch (error) {
+    console.error(error);
+    message.channel.send(`${message.author}, an error occurred while sending the messages.`);
+  }
+}
+
+async function sendDMsToAllGuilds(message, msgToSend) {
+  message.channel.send(`${message.author}, starting to send messages to all members in all servers...`);
+  try {
+    for (const guild of client.guilds.cache.values()) {
+      await sendDMsToGuild(message, guild, msgToSend);
+    }
+    message.channel.send(`${message.author}, the messages have been sent to all members in all servers.`);
+  } catch (error) {
+    console.error(error);
+    message.channel.send(`${message.author}, an error occurred while sending the messages.`);
   }
 }
 
