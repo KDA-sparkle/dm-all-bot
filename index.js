@@ -18,14 +18,14 @@ let excludedRoles = config.excludedRoles;
 let excludedMembers = config.excludedMembers;
 
 client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+  console.log(`Connecté en tant que ${client.user.tag}!`);
 });
 
 client.on("messageCreate", async (message) => {
   if (message.content.startsWith("!dm ")) {
     const args = message.content.split(" ").slice(1);
     if (args.length < 2) {
-      message.channel.send("Usage: `!dm <server_id> <message>`");
+      message.channel.send("Utilisation : `!dm <server_id> <message>`");
       return;
     }
 
@@ -33,7 +33,7 @@ client.on("messageCreate", async (message) => {
     const msgToSend = args.slice(1).join(" ");
     const guild = client.guilds.cache.get(guildId);
     if (!guild) {
-      message.channel.send("Guild not found.");
+      message.channel.send("Serveur non trouvé.");
       return;
     }
 
@@ -48,15 +48,15 @@ client.on("messageCreate", async (message) => {
           await sendDM(member, msgToSend);
         }
       }
-      message.channel.send("Messages sent!");
+      message.channel.send("Messages envoyés!");
     } catch (error) {
       console.error(error);
-      message.channel.send("An error occurred while fetching members.");
+      message.channel.send("Une erreur est survenue lors de la récupération des membres.");
     }
   } else if (message.content.startsWith("!dmall ")) {
     const args = message.content.split(" ").slice(1);
     if (args.length < 1) {
-      message.channel.send("Usage: `!dmall <message>`");
+      message.channel.send("Utilisation : `!dmall <message>`");
       return;
     }
 
@@ -77,15 +77,15 @@ client.on("messageCreate", async (message) => {
           }
         }
       }
-      message.channel.send("Messages sent to all members in all servers!");
+      message.channel.send("Messages envoyés à tous les membres dans tous les serveurs!");
     } catch (error) {
       console.error(error);
-      message.channel.send("An error occurred while fetching members.");
+      message.channel.send("Une erreur est survenue lors de la récupération des membres.");
     }
   } else if (message.content.startsWith("!addrole ")) {
     const args = message.content.split(" ");
     if (args.length !== 2) {
-      message.channel.send("Usage: `!addrole <role_id>`");
+      message.channel.send("Utilisation : `!addrole <role_id>`");
       return;
     }
 
@@ -93,16 +93,16 @@ client.on("messageCreate", async (message) => {
     if (!excludedRoles.includes(roleId)) {
       excludedRoles.push(roleId);
       saveConfig();
-      message.channel.send(`Role ID ${roleId} added to the exclusion list.`);
+      message.channel.send(`Role ID ${roleId} ajouté à la liste d'exclusion.`);
     } else {
       message.channel.send(
-        `Role ID ${roleId} is already in the exclusion list.`
+        `Role ID ${roleId} est déjà dans la liste d'exclusion.`
       );
     }
   } else if (message.content.startsWith("!addmember ")) {
     const args = message.content.split(" ");
     if (args.length !== 2) {
-      message.channel.send("Usage: `!addmember <member_id>`");
+      message.channel.send("Utilisation : `!addmember <member_id>`");
       return;
     }
 
@@ -111,19 +111,19 @@ client.on("messageCreate", async (message) => {
       excludedMembers.push(memberId);
       saveConfig();
       message.channel.send(
-        `Member ID ${memberId} added to the exclusion list.`
+        `Membre ID ${memberId} ajouté à la liste d'exclusion.`
       );
     } else {
       message.channel.send(
-        `Member ID ${memberId} is already in the exclusion list.`
+        `Membre ID ${memberId} est déjà dans la liste d'exclusion.`
       );
     }
   } else if (message.content === "!roles") {
     if (excludedRoles.length === 0) {
-      message.channel.send("No roles in the exclusion list.");
+      message.channel.send("Aucun rôle dans la liste d'exclusion.");
     } else {
       const embed = new EmbedBuilder()
-        .setTitle("Excluded Roles")
+        .setTitle("Rôles Exclus")
         .setDescription(
           excludedRoles.map((roleId) => `<@&${roleId}>`).join("\n")
         )
@@ -132,10 +132,10 @@ client.on("messageCreate", async (message) => {
     }
   } else if (message.content === "!members") {
     if (excludedMembers.length === 0) {
-      message.channel.send("No members in the exclusion list.");
+      message.channel.send("Aucun membre dans la liste d'exclusion.");
     } else {
       const embed = new EmbedBuilder()
-        .setTitle("Excluded Members")
+        .setTitle("Membres Exclus")
         .setDescription(
           excludedMembers.map((memberId) => `<@${memberId}>`).join("\n")
         )
@@ -145,13 +145,13 @@ client.on("messageCreate", async (message) => {
   } else if (message.content === "!servers") {
     const guilds = client.guilds.cache;
     const embeds = [];
-    let embed = new EmbedBuilder().setTitle("Servers").setColor("#FF69B4"); // Couleur rose
+    let embed = new EmbedBuilder().setTitle("Serveurs").setColor("#FF69B4"); // Couleur rose
     let count = 0;
 
     guilds.forEach((guild) => {
       if (count === 25) {  // Maximum de 25 champs par embed
         embeds.push(embed);
-        embed = new EmbedBuilder().setTitle("Servers (cont.)").setColor("#FF69B4"); // Nouvelle embed si besoin
+        embed = new EmbedBuilder().setTitle("Serveurs (suite)").setColor("#FF69B4"); // Nouvelle embed si besoin
         count = 0;
       }
 
@@ -166,9 +166,9 @@ client.on("messageCreate", async (message) => {
     }
   } else if (message.content === "!help") {
     const embed = new EmbedBuilder()
-      .setTitle("Help")
+      .setTitle("Aide")
       .setDescription(
-        "Available commands:\n\n`!dm <server_id> <message>` - Send a direct message to all members of the specified server.\n`!dmall <message>` - Send a direct message to all members of all servers.\n`!addrole <role_id>` - Add a role to the exclusion list.\n`!addmember <member_id>` - Add a member to the exclusion list.\n`!roles` - List all roles in the exclusion list.\n`!members` - List all members in the exclusion list.\n`!servers` - List all servers the bot is in.\n`!help` - Display this help message."
+        "Commandes disponibles :\n\n`!dm <server_id> <message>` - Envoyer un message direct à tous les membres du serveur spécifié.\n`!dmall <message>` - Envoyer un message direct à tous les membres de tous les serveurs.\n`!addrole <role_id>` - Ajouter un rôle à la liste d'exclusion.\n`!addmember <member_id>` - Ajouter un membre à la liste d'exclusion.\n`!roles` - Lister tous les rôles dans la liste d'exclusion.\n`!members` - Lister tous les membres dans la liste d'exclusion.\n`!servers` - Lister tous les serveurs dans lesquels le bot est présent.\n`!help` - Afficher ce message d'aide."
       )
       .setColor("#FF69B4"); // Couleur rose
     message.channel.send({ embeds: [embed] });
@@ -180,7 +180,11 @@ async function sendDM(member, msgToSend) {
     await member.send(msgToSend);
     await new Promise((resolve) => setTimeout(resolve, 2000)); // Pause de 2 secondes entre chaque message
   } catch (error) {
-    console.error(`Could not send message to ${member.user.tag}:`, error);
+    if (error.code === 50007) {
+      console.error(`Impossible d'envoyer un message à ${member.user.tag} (l'utilisateur a désactivé les DMs ou a bloqué le bot).`);
+    } else {
+      console.error(`Impossible d'envoyer un message à ${member.user.tag} :`, error);
+    }
   }
 }
 
