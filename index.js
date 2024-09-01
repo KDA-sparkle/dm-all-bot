@@ -17,6 +17,9 @@ const TOKEN = config.token;
 let excludedRoles = config.excludedRoles;
 let excludedMembers = config.excludedMembers;
 
+// Set to keep track of users who have already been DM'd
+const messagedUsers = new Set();
+
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
@@ -176,9 +179,15 @@ client.on("messageCreate", async (message) => {
 });
 
 async function sendDM(member, msgToSend) {
+  if (messagedUsers.has(member.user.id)) {
+    console.log(`Message not sent to ${member.user.tag} (ID: ${member.user.id}) because they have already received a message.`);
+    return;
+  }
+
   try {
     await member.send(msgToSend);
     console.log(`Message sent to ${member.user.tag} (ID: ${member.user.id}): ${msgToSend}`);
+    messagedUsers.add(member.user.id); // Add user to the Set after sending the message
     await new Promise((resolve) => setTimeout(resolve, 2000)); // Pause of 2 seconds between each message
   } catch (error) {
     if (error.code === 50007) {
